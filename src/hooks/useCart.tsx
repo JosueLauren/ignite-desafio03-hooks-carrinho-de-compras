@@ -23,28 +23,44 @@ const CartContext = createContext<CartContextData>({} as CartContextData);
 
 export function CartProvider({ children }: CartProviderProps): JSX.Element {
   const [cart, setCart] = useState<Product[]>(() => {
-    // const storagedCart = Buscar dados do localStorage
+    const storagedCart = window.localStorage.getItem('storagedCart')
 
-    // if (storagedCart) {
-    //   return JSON.parse(storagedCart);
-    // }
+    if(storagedCart) {
+      return JSON.parse(storagedCart);
+    }
 
     return [];
   });
 
   const addProduct = async (productId: number) => {
     try {
-      // TODO
+      let isProductInCart = cart.find(product => product.id === productId)
+
+      if(!isProductInCart){
+        let response = await api.get(`products/${productId}`)
+        let product = {...response.data}
+
+        product.amount = 1
+
+        setCart([...cart, product])
+        window.localStorage.setItem('storagedCart', JSON.stringify([...cart, product]))
+
+      } else {
+        updateProductAmount({productId: isProductInCart.id, amount: isProductInCart.amount + 1})
+      }
     } catch {
-      // TODO
+      toast.error('Erro na adição do produto');
     }
   };
 
   const removeProduct = (productId: number) => {
     try {
-      // TODO
-    } catch {
-      // TODO
+      const cartComProdutoRemovido = cart.filter(product => product.id !== productId)
+      setCart([...cartComProdutoRemovido])
+      window.localStorage.setItem('storagedCart', JSON.stringify([...cartComProdutoRemovido]))
+    
+    } catch(e) {
+      toast.error('Erro na remoção do produto');
     }
   };
 
@@ -53,9 +69,29 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
     amount,
   }: UpdateProductAmount) => {
     try {
-      // TODO
-    } catch {
-      // TODO
+
+      if(amount === 0) return
+      const response = await api.get<Stock>(`stock/${productId}`)
+      const qtdStock = response.data.amount
+
+      if(amount > qtdStock){
+        throw new Error('Quantidade solicitada fora de estoque')
+        return
+      }
+
+      let auxCart = [...cart]
+
+      auxCart.forEach(product => {
+        if(product.id === productId){
+          product.amount = amount
+        }
+      })
+
+      setCart([...auxCart])
+       window.localStorage.setItem('storagedCart', JSON.stringify([...auxCart]))
+
+    } catch(e){
+      toast.error(`${e}`);
     }
   };
 
